@@ -1,9 +1,6 @@
 //
 const axios = require("axios");
 
-
-
-
 require("dotenv").config();
 
 const { App } = require("@slack/bolt");
@@ -13,7 +10,6 @@ const app = new App({
   appToken: process.env.SLACK_APP_TOKEN,
   socketMode: true
 });
-
 
 //KOTE-PING
 app.command("/kote-ping", async ({ command, ack, respond }) => {
@@ -27,7 +23,6 @@ app.command("/kote-ping", async ({ command, ack, respond }) => {
   await app.start();
   console.log("bot is running!");
 })();
-
 
 //KOTE-HELP
 app.command("/kote-help", async ({ ack, respond }) => {
@@ -53,7 +48,6 @@ OTHER:
 /kote-weather - Get the current weather at your location`
   });
 });
-
 
 //KOTE-JOKE
 app.command("/kote-joke", async ({ ack, respond }) => {
@@ -95,7 +89,7 @@ ${response.data.properties.periods[0].detailedForecast}`
 //handled in the command below; just checks if there's text after the command and adds it to the list if there is
 const userTodos = {};
 
-app.command("/kote-todo", async ({ command, ack, respond }) => { 
+app.command("/kote-todo", async ({ command, ack, respond }) => {
   await ack();
 
   const userId = command.user_id;
@@ -103,23 +97,24 @@ app.command("/kote-todo", async ({ command, ack, respond }) => {
 
   if (!userTodos[userId]) {
     userTodos[userId] = [];
-  } 
+  }
+
   if (text) {
     userTodos[userId].push(text);
     await respond({ text: `Added to your to-do list: ${text}` });
-  } 
-  else {
+  } else {
     const todos = userTodos[userId];
     if (todos.length === 0) {
       await respond({ text: "Your to-do list is empty." });
     } else {
       await respond({ text: `Your to-do list:\n${todos.map((item, index) => `${index + 1}. ${item}`).join("\n")}` });
-    } 
+    }
   }
 });
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//KOTE-REMIND [TIME] [MESSAGE]: set a reminder with a custom message (not implemented yet); for now, just store it in memory; this is where the reminder would be set; for now, just store it in memory
+
+//KOTE-REMIND [TIME] [MESSAGE]: set a reminder with a custom message (not implemented yet); for now, just store it in memory
 const userReminders = {};
+const channelReminders = {};
 
 app.command("/kote-remind", async ({ command, ack, respond }) => {
   await ack();
@@ -127,33 +122,18 @@ app.command("/kote-remind", async ({ command, ack, respond }) => {
   const text = command.text.trim();
   const [time, ...messageParts] = text.split(" ");
   const message = messageParts.join(" ");
+
   if (!userReminders[userId]) {
     userReminders[userId] = [];
   }
-  function parseTimeToMs(timeStr) {
-    const match = timeStr.match(/(\d+)([smhd])/);
-    if (!match) return null;
-    const value = parseInt(match[1], 10);
-    const unit = match[2];
 
-    switch (unit) {
-      case "s": return value * 1000;
-      case "m": return value * 60 * 1000;
-      case "h": return value * 60 * 60 * 1000;
-      case "d": return value * 24 * 60 * 60 * 1000;
-      default: return null;
-    }
-  }
   const delay = parseTimeToMs(time);
   if (!delay) {
     await respond({ text: "Invalid time format. Use something like '10s', '5m', '2h', or '1d'." });
     return;
   }
-  if (!userReminders[userId]) {
-    userReminders[userId] = [];
-  }
- 
-      userReminders[userId].push({ time, message });
+
+  userReminders[userId].push({ time, message });
   await respond({ text: `Reminder set for ${time}: ${message}` });
 
   setTimeout(async () => {
@@ -161,29 +141,8 @@ app.command("/kote-remind", async ({ command, ack, respond }) => {
       channel: userId,
       text: `Reminder: ${message}`
     });
-}, delay);
-
-   await respond({ text: `Reminder set for ${time}: ${message}` });
+  }, delay);
 });
-
-
-//KOTE-REMIND [@SOMEONE] or [#CHANNEL] [TIME] [MESSAGE]: set a reminder for someone else or a channel (not implemented yet)
-function parseTimeToMs(timeStr) {
-    const match = timeStr.match(/(\d+)([smhd])/);
-    if (!match) return null;
-
-    const value = parseInt(match[1], 10);
-    const unit = match[2];
-
-    switch (unit) {
-      case "s": return value * 1000;
-      case "m": return value * 60 * 1000;
-      case "h": return value * 60 * 60 * 1000;
-      case "d": return value * 24 * 60 * 60 * 1000;
-      default: return null;
-    }
-
-const channelReminders = {};
 
 app.command("/kote-remind-channel", async ({ command, ack, respond }) => {
   await ack();
@@ -203,14 +162,30 @@ app.command("/kote-remind-channel", async ({ command, ack, respond }) => {
 
   channelReminders[target].push({ time, message });
   await respond({ text: `Reminder set for ${target} at ${time}: ${message}` });
-});
+
   setTimeout(async () => {
     await app.client.chat.postMessage({
       channel: target,
-      text: 'Reminder: ${message}'
+      text: `Reminder: ${message}`
     });
-    }, delay);
+  }, delay);
+});
 
+function parseTimeToMs(timeStr) {
+  const match = timeStr.match(/(\d+)([smhd])/);
+  if (!match) return null;
+
+  const value = parseInt(match[1], 10);
+  const unit = match[2];
+
+  switch (unit) {
+    case "s": return value * 1000;
+    case "m": return value * 60 * 1000;
+    case "h": return value * 60 * 60 * 1000;
+    case "d": return value * 24 * 60 * 60 * 1000;
+    default: return null;
+  }
+}
 
 //KOTE-REMINDERS: list the user's active reminders (not implemented yet)
 const listReminders = async ({ command, ack, respond }) => {
@@ -221,11 +196,10 @@ const listReminders = async ({ command, ack, respond }) => {
     await respond({ text: "You have no active reminders." });
   } else {
     await respond({ text: `Your active reminders:\n${reminders.map((reminder, index) => `${index + 1}. ${reminder.time}: ${reminder.message}`).join("\n")}` });
-  } 
+  }
 };
 
 app.command("/kote-reminders", listReminders);
-
 
 //KOTE-REMIND-CLEAR: clear all the user's reminders (not implemented yet)
 const clearReminders = async ({ command, ack, respond }) => {
@@ -235,4 +209,4 @@ const clearReminders = async ({ command, ack, respond }) => {
   await respond({ text: "All your reminders have been cleared." });
 };
 
-app.command("/kote-remind-clear", clearReminders);}
+app.command("/kote-remind-clear", clearReminders);
